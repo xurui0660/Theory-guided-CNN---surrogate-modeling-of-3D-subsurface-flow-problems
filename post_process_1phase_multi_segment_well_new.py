@@ -5,6 +5,8 @@ Created on Fri Jun 18 15:36:38 2021
 @author: Rui
 """
 
+#### prediction, comparison, figure plotting using the trained surrogate model ####
+
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,6 +18,14 @@ def post_process_1phase(label1,label2,pp_test,\
              pw_test,qw_test,tk_test,p_boun1_0,p_boun2_0,n_well,n_logk_test,nt,nz,ny,nx,\
             dx,dy,dz,bigt,x,y,t,k_test,poro,z_ref,Q,BHP,var,mean_logk,t_nday,p_ref,bo0,co,\
                 vo,rou_o,gz,xp_set,yp_set,zp_set_up,zp_set_down,rw,r0,c,p0,L_t,gpu,well_image0,Phi_w):
+
+    ''' label1: 'constp' or 'constq'
+        lable2: 'train' or 'test'
+        pw_test: reference pressure for the testing set (UNCONG)
+        qw_test: reference well flow rate data for the testin set (UNCONG)
+        tk_test: testing inputs to the neural network
+        other parameters are formation and production related parameters
+    ''' 
     
     Net = ConvNet_3d_hard_elu_10_220_60(p0,L_t,label1,100,1,False)
     Net.load_state_dict(torch.load('model.ckpt'))
@@ -46,6 +56,8 @@ def post_process_1phase(label1,label2,pp_test,\
 
         if (label1=='constq'):
             Q_image=np.zeros(ki_image.shape)
+
+            # flow rate allocation based on the permeability values for the constant flow rate case
             for i_w in range(n_well):
             
                 Q_image[:,:,zp_set_up[i_w]:zp_set_down[i_w]+1,yp_set[i_w],xp_set[i_w]]=\
@@ -56,6 +68,7 @@ def post_process_1phase(label1,label2,pp_test,\
             pw_mat=p_test_pred-Q_image/j_i*bo0
         
             pw_col=np.zeros((nt,n_well))
+            # calculate well BHP based on the flow rate
             for i_well in range(n_well):
                 pw_col[:,i_well]=pw_mat[:,0,zp_set_up[i_well],yp_set[i_well],xp_set[i_well]]
                 
@@ -65,6 +78,7 @@ def post_process_1phase(label1,label2,pp_test,\
             Qw_mat=(phi_test_pred-Phi_w)*j_i/bo0*well_image0
     
             Qw_col=np.zeros((nt,n_well))
+            # calculate well flow rate based on the constant bottom hole well potential
             for i_well in range(n_well):
                 Qw_col[:,i_well]=Qw_mat[:,0,zp_set_up[i_well]:zp_set_down[i_well]+1,yp_set[i_well],xp_set[i_well]].sum(axis=-1)
                 
@@ -122,9 +136,10 @@ def post_process_1phase(label1,label2,pp_test,\
     f.close()
     
     #######################################################
-    #结果展示    
+    ########   compariosn plot  ###########################  
+    ####################################################### 
     
-    n_logk_test_plot=5
+    n_logk_test_plot=5   # number of testing cases to be compared
 
     for i_sam in range(n_logk_test_plot):
 
